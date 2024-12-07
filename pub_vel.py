@@ -11,6 +11,26 @@ class ServoCtl:
         self.pub = rospy.Publisher('/servo_server/delta_twist_cmds', TwistStamped, queue_size=10)
         self.rate = rospy.Rate(50)
         self.dashboard = np.zeros((480, 640, 3), np.uint8)
+        # 定义一个字典映射按键到速度调整函数
+        self.key_mappings = {
+            'q': lambda: exit(),
+            'w': lambda: setattr(self.vel.twist.linear, 'x', 0.1),
+            's': lambda: setattr(self.vel.twist.linear, 'x', -0.1),
+            'a': lambda: setattr(self.vel.twist.linear, 'y', 0.1),
+            'd': lambda: setattr(self.vel.twist.linear, 'y', -0.1),
+            ' ': lambda: setattr(self.vel.twist.linear, 'z', 0.1),
+            'c': lambda: setattr(self.vel.twist.linear, 'z', -0.1),
+            'y': lambda: setattr(self.vel.twist.angular, 'x', 0.7),
+            'h': lambda: setattr(self.vel.twist.angular, 'x', -0.7),
+            'u': lambda: setattr(self.vel.twist.angular, 'y', 0.7),
+            'j': lambda: setattr(self.vel.twist.angular, 'y', -0.7),
+            'i': lambda: setattr(self.vel.twist.angular, 'z', 0.7),
+            'k': lambda: setattr(self.vel.twist.angular, 'z', -0.7),
+            'r': lambda: self.controller_switch('servo'),
+            't': lambda: self.controller_switch('position'),
+            # 如果需要更多按键操作，请继续添加
+        }
+
     
     def controller_switch(self, mode):
         rospy.wait_for_service('/controller_manager/switch_controller')
@@ -35,18 +55,6 @@ class ServoCtl:
             rospy.logwarn("Failed to switch controllers.")
 
 
-    # 画姿态坐标系在图片上
-    def draw_axes(self, img, R, t):
-        Rt = np.hstack((R, t))
-        Rt = np.vstack((Rt, [0, 0, 0, 1]))
-        length = 0.1
-        axis_length = length * 0.1
-        x_axis = np.array([[0, 0, 0, 1], [length, 0, 0, 1]])
-        y_axis = np.array([[0, 0, 0, 1], [0, length, 0, 1]])
-        z_axis = np.array([[0, 0, 0, 1], [0, 0, length, 1]])
-        x_axis = Rt @ x_axis
-        y_axis = Rt @ y_axis
-
 
     def run(self):
         last_pressed_time = rospy.Time.now()
@@ -63,43 +71,16 @@ class ServoCtl:
             cv.putText(show_dashboard, 'press q to quit', (10, 210), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             cv.imshow('dashboard', show_dashboard)
-            key = cv.waitKey(5)
-            if key != -1:
-                last_pressed_time = rospy.Time.now()
-
-            if key == ord('q'):
-                break
-            elif key == ord('w'):
-                self.vel.twist.linear.x = 0.1
-            elif key == ord('s'):
-                self.vel.twist.linear.x = -0.1
-            elif key == ord('a'):
-                self.vel.twist.linear.y = 0.1
-            elif key == ord('d'):
-                self.vel.twist.linear.y = -0.1
-            elif key == ord(' '):
-                self.vel.twist.linear.z = 0.1
-            elif key == ord('c'):
-                self.vel.twist.linear.z = -0.1
-            elif key == ord('y'):
-                self.vel.twist.angular.x = 0.7
-            elif key == ord('h'):
-                self.vel.twist.angular.x = -0.7
-            elif key == ord('u'):
-                self.vel.twist.angular.y = 0.7
-            elif key == ord('j'):
-                self.vel.twist.angular.y = -0.7
-            elif key == ord('i'):
-                self.vel.twist.angular.z = 0.7
-            elif key == ord('k'):
-                self.vel.twist.angular.z = -0.7
-            elif key == ord('r'):
-                self.controller_switch('servo')
-            elif key == ord('t'):
-                self.controller_switch('position')
+            key = cv.waitKey(50)
+            if key != -1:  # -1 表示没有按键被按下
+                char_key = chr(key)  # 转换按键编码为字符
+                if char_key in self.key_mappings:
+                    key_action = self.key_mappings[char_key]
+                    key_action()  # 执行对应的操作
             else:
-                # if(rospy.Time.now() - last_pressed_time).to_sec() > 0.1:
                 self.vel = TwistStamped()
+
+
             
             self.vel.header.stamp = rospy.Time.now()
             self.vel.header.frame_id = 'base_link'
