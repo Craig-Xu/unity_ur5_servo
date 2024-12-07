@@ -63,7 +63,7 @@ class ServoCtl:
             cv.putText(show_dashboard, 'press q to quit', (10, 210), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             cv.imshow('dashboard', show_dashboard)
-            key = cv.waitKey(0)
+            key = cv.waitKey(5)
             if key != -1:
                 last_pressed_time = rospy.Time.now()
 
