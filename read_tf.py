@@ -21,9 +21,14 @@ if __name__ == '__main__':
             (trans, rot) = listener.lookupTransform('world', 'wrist_3_link', rospy.Time(0))
 
 
-            desired_matrix = [[0, 1, 0, 0],
+            # desired_matrix = [[0, 1, 0, 0],
+            #                 [0, 0, -1, 0],
+            #                 [-1, 0, 0, 0],
+            #                 [0, 0, 0, 1]]
+
+            desired_matrix = [[1, 0, 0, 0],
                             [0, 0, -1, 0],
-                            [-1, 0, 0, 0],
+                            [0, 1, 0, 0],
                             [0, 0, 0, 1]]
             
             desired_matrix = tft.inverse_matrix(desired_matrix)
@@ -35,12 +40,14 @@ if __name__ == '__main__':
             if angle<0:
                 angle = -angle
                 axis = -axis
-
-            print('angle:', angle)
-            print('axis:', axis)
             
-            angular_p = 5.0
-            angluar_velocity = np.clip(angle*axis*angular_p, -1.0, 1.0)
+            angular_p = 50.0
+            angluar_velocity_limit = 10
+            angluar_velocity = np.clip(angle*axis*angular_p, \
+                                        -angluar_velocity_limit, angluar_velocity_limit)
+
+            print('angluar_velocity:', angluar_velocity)
+
             vel.twist.angular.x = angluar_velocity[0]
             vel.twist.angular.y = angluar_velocity[1]
             vel.twist.angular.z = angluar_velocity[2]
