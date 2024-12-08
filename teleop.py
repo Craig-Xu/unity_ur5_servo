@@ -97,6 +97,7 @@ class ServoCtl:
 
     def run(self):
         last_pressed_time = rospy.Time.now()
+        key = -1
         while not rospy.is_shutdown():
             show_dashboard=self.dashboard.copy()
             cv.putText(show_dashboard, 'linear x: {:.2f}'.format(self.vel.twist.linear.x), (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -110,7 +111,12 @@ class ServoCtl:
             cv.putText(show_dashboard, 'press q to quit', (10, 210), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             cv.imshow('dashboard', show_dashboard)
-            key = cv.waitKey(50)
+            tmp_key = cv.waitKey(10)
+            if(key!=tmp_key):
+                if(rospy.Time.now()-last_pressed_time>rospy.Duration(0.2)):
+                    last_pressed_time = rospy.Time.now()
+                    key = tmp_key
+
             if key != -1:  # -1 表示没有按键被按下
                 char_key = chr(key)  # 转换按键编码为字符
                 if char_key in self.key_mappings:
