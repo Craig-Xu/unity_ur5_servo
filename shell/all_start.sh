@@ -13,3 +13,4 @@ gnome-terminal --window -e 'bash -c "bash 0endpoint.sh;exec bash"' \
 --tab -e 'bash -c "sleep 2; bash 2moveit.sh;exec bash"' \
 --tab -e 'bash -c "sleep 3; bash 3rviz.sh;exec bash"' \
 --tab -e 'bash -c "sleep 4; bash 4servo.sh;exec bash"' \
+--tab -e 'bash -c "sleep 5; python3 ../teleop.py;exec bash"' \

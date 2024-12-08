@@ -57,7 +57,7 @@ class ServoCtl:
         desired_matrix = tft.inverse_matrix(desired_matrix)
         desired_rot = tft.quaternion_from_matrix(desired_matrix)
 
-        desired_rot = self.desired_rot
+        # desired_rot = self.desired_rot
 
         delta_rot = tft.quaternion_multiply(desired_rot, tft.quaternion_inverse(rot))
         delta_matrix = tft.quaternion_matrix(delta_rot)
