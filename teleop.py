@@ -1,8 +1,11 @@
 import cv2 as cv
 import numpy as np
 import rospy
+from std_msgs.msg import String
 from geometry_msgs.msg import TwistStamped
 from controller_manager_msgs.srv import SwitchController
+import tf
+import tf.transformations as tft
 
 class ServoCtl:
     def __init__(self):
@@ -11,6 +14,12 @@ class ServoCtl:
         self.pub = rospy.Publisher('/servo_server/delta_twist_cmds', TwistStamped, queue_size=10)
         self.rate = rospy.Rate(50)
         self.dashboard = np.zeros((480, 640, 3), np.uint8)
+        self.listener = tf.TransformListener()
+        self.gripper_command_pub = rospy.Publisher('/gripper_command', String, queue_size=10)
+        self.gripper_distance = 0.0
+        self.gripper_open_limit = 90.0
+        self.gripper_close_limit = 0.0
+        self.gripper_move_step = 1.0
         # 定义一个字典映射按键到速度调整函数
         twist_vel = 0.2
         angular_vel = 0.7
@@ -30,10 +39,39 @@ class ServoCtl:
             'k': lambda: setattr(self.vel.twist.angular, 'z', -angular_vel),
             'r': lambda: self.controller_switch('servo'),
             't': lambda: self.controller_switch('position'),
+            'o': lambda: self.gripper_ctl('open'),
+            'i': lambda: self.gripper_ctl('close'),
             # 如果需要更多按键操作，请继续添加
         }
 
-    
+    def update_angluar_velocity(self, desired_matrix):
+        self.listener.waitForTransform('/world', '/wrist_3_link', rospy.Time(0), rospy.Duration(4.0)) 
+        (trans, rot) = self.listener.lookupTransform('world', 'wrist_3_link', rospy.Time(0))
+        desired_matrix = tft.inverse_matrix(desired_matrix)
+        desired_rot = tft.quaternion_from_matrix(desired_matrix)
+        delta_rot = tft.quaternion_multiply(desired_rot, tft.quaternion_inverse(rot))
+        delta_matrix = tft.quaternion_matrix(delta_rot)
+        angle, axis , _ = tft.rotation_from_matrix(delta_matrix)
+
+        angular_p = 50.0
+        angluar_velocity_limit = 10.0
+        angluar_velocity = np.clip(angle*axis*angular_p, \
+                                    -angluar_velocity_limit, angluar_velocity_limit)
+        self.vel.twist.angular.x = angluar_velocity[0]
+        self.vel.twist.angular.y = angluar_velocity[1]
+        self.vel.twist.angular.z = angluar_velocity[2]
+        # print('angluar_velocity:', angluar_velocity)
+
+    def gripper_ctl(self, cmd):
+        if(cmd == 'open'):
+            self.gripper_distance += self.gripper_move_step
+        elif(cmd == 'close'):
+            self.gripper_distance -= self.gripper_move_step
+        else:
+            rospy.logwarn("Invalid command.")
+        self.gripper_distance = np.clip(self.gripper_distance, self.gripper_close_limit, self.gripper_open_limit)
+        self.gripper_command_pub.publish(str(self.gripper_distance))
+
     def controller_switch(self, mode):
         rospy.wait_for_service('/controller_manager/switch_controller')
         switch_controller_service = rospy.ServiceProxy('/controller_manager/switch_controller', SwitchController)
@@ -55,7 +93,6 @@ class ServoCtl:
             rospy.loginfo("Successfully switched controllers.")
         else:
             rospy.logwarn("Failed to switch controllers.")
-
 
 
     def run(self):
@@ -80,9 +117,15 @@ class ServoCtl:
                     key_action = self.key_mappings[char_key]
                     key_action()  # 执行对应的操作
             else:
-                self.vel = TwistStamped()
+                self.vel.twist.linear.x = 0
+                self.vel.twist.linear.y = 0
+                self.vel.twist.linear.z = 0
 
-
+            desired_matrix = [[-1, 0, 0, 0],
+                            [0, 0, -1, 0],
+                            [0, -1, 0, 0],
+                            [0, 0, 0, 1]]
+            self.update_angluar_velocity(desired_matrix)
             
             self.vel.header.stamp = rospy.Time.now()
             self.vel.header.frame_id = 'base_link'
